@@ -1,0 +1,12 @@
+# VS Code 本地配置
+/.vscode/
+
+# 环境变量及敏感配置
+**/.env
+**/.env.*
+!**/.env.example
+
+# Spring Boot 本地配置
+**/application-local.properties
+**/application-local.yml
+**/application-local.yaml
