@@ -3,7 +3,11 @@ package com.taskflow.backend.entity;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+
 public class Task {
+    @TableId(type = IdType.AUTO)
     private Long id;
     private Long userId;
     private String title;

@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.taskflow.backend.dto.CreateTaskRequest;
 import com.taskflow.backend.entity.Task;
 import com.taskflow.backend.mapper.TaskMapper;
 
@@ -24,5 +25,24 @@ public class TaskService {
                 .orderByDesc(Task::getCreateTime);
 
         return taskMapper.selectList(query);
+    }
+
+    public Task createTask(Long userId, CreateTaskRequest request) {
+        Task task = new Task();
+
+        task.setUserId(userId);
+        task.setTitle(request.title().trim());
+        task.setDescription(request.description());
+        task.setPriority(request.priority() == null ? 2 : request.priority());
+        task.setStatus(0);
+        task.setCategory(request.category() == null || request.category().isBlank()
+                ? "学习"
+                : request.category().trim());
+        task.setDueDate(request.dueDate());
+        task.setSource(1);
+
+        taskMapper.insert(task);
+
+        return task;
     }
 }
