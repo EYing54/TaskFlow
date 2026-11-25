@@ -84,6 +84,7 @@
           <div class="form-row">
             <div class="form-group">
               <label for="task-priority">优先级</label>
+
               <select id="task-priority" v-model.number="newTask.priority">
                 <option :value="1">高优先级</option>
                 <option :value="2">中优先级</option>
@@ -128,6 +129,11 @@
           </div>
         </form>
 
+        <!-- 状态修改错误提示 -->
+        <p v-if="updateError" class="update-error" role="alert">
+          {{ updateError }}
+        </p>
+
         <!-- 任务列表 -->
         <div class="list-heading">
           <span>任务</span>
@@ -151,14 +157,19 @@
             :key="task.id"
             class="task-row"
           >
-            <span
+            <!-- 任务完成按钮 -->
+            <button
+              type="button"
               class="task-indicator"
               :class="{ completed: task.status === 2 }"
-              aria-hidden="true"
+              :disabled="updatingTaskId !== null"
+              :aria-label="task.status === 2 ? '恢复待办' : '完成任务'"
+              @click="updateTaskStatus(task.id, task.status === 2 ? 0 : 2)"
             >
               {{ task.status === 2 ? "✓" : "" }}
-            </span>
+            </button>
 
+            <!-- 任务信息 -->
             <div class="task-info">
               <h3 :class="{ done: task.status === 2 }">
                 {{ task.title }}
@@ -170,17 +181,33 @@
 
               <div class="task-meta">
                 <span>{{ task.category || "未分类" }}</span>
+
                 <span class="meta-separator">·</span>
+
                 <span :class="'priority-' + task.priority">
                   {{ priorityLabels[task.priority] || "普通" }}
                 </span>
               </div>
             </div>
 
+            <!-- 任务状态与截止日期 -->
             <div class="task-side">
-              <span class="status-label" :class="'status-' + task.status">
-                {{ statusLabels[task.status] || "未知" }}
-              </span>
+              <select
+                class="status-select"
+                :class="'status-' + task.status"
+                :value="task.status"
+                :disabled="updatingTaskId !== null"
+                aria-label="任务状态"
+                @change="updateTaskStatus(task.id, Number($event.target.value))"
+              >
+                <option
+                  v-for="(label, value) in statusLabels"
+                  :key="value"
+                  :value="value"
+                >
+                  {{ label }}
+                </option>
+              </select>
 
               <time v-if="task.dueDate">
                 {{ task.dueDate }}
@@ -206,6 +233,10 @@ const errorMessage = ref("");
 const keyword = ref("");
 const currentStatus = ref("all");
 
+// 任务状态修改
+const updatingTaskId = ref(null);
+const updateError = ref("");
+
 // 新建任务状态
 const showCreate = ref(false);
 const creating = ref(false);
@@ -227,12 +258,14 @@ const navigation = [
   { label: "已完成", value: "2" },
 ];
 
+// 任务状态
 const statusLabels = {
   0: "待办",
   1: "进行中",
   2: "已完成",
 };
 
+// 任务优先级
 const priorityLabels = {
   1: "高优先级",
   2: "中优先级",
@@ -315,6 +348,40 @@ const createTask = async () => {
     createError.value = error.response?.data?.message || "创建任务失败";
   } finally {
     creating.value = false;
+  }
+};
+
+// 修改任务状态
+const updateTaskStatus = async (taskId, status) => {
+  if (updatingTaskId.value !== null) {
+    return;
+  }
+
+  const task = tasks.value.find((item) => item.id === taskId);
+
+  if (!task || task.status === status) {
+    return;
+  }
+
+  updateError.value = "";
+  updatingTaskId.value = taskId;
+
+  try {
+    await request.patch(`/api/tasks/${taskId}/status`, {
+      status,
+    });
+
+    const currentTask = tasks.value.find((item) => item.id === taskId);
+
+    if (currentTask) {
+      currentTask.status = status;
+    }
+  } catch (error) {
+    updateError.value = error.response?.data?.message || "任务状态修改失败";
+
+    await loadTasks();
+  } finally {
+    updatingTaskId.value = null;
   }
 };
 
@@ -537,6 +604,12 @@ onMounted(loadTasks);
   font-size: 13px;
 }
 
+.update-error {
+  margin: 0 0 16px;
+  color: #c66b64;
+  font-size: 13px;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -590,17 +663,26 @@ onMounted(loadTasks);
   border-bottom: 1px solid #efefef;
 }
 
+/* 任务完成按钮 */
 .task-indicator {
   display: grid;
   place-items: center;
   flex-shrink: 0;
   width: 20px;
   height: 20px;
+  box-sizing: border-box;
   margin-top: 2px;
+  padding: 0;
   border: 1.5px solid #c6c9c6;
   border-radius: 50%;
+  background: transparent;
   color: #fff;
   font-size: 12px;
+  cursor: pointer;
+}
+
+.task-indicator:hover {
+  border-color: #46866d;
 }
 
 .task-indicator.completed {
@@ -608,6 +690,12 @@ onMounted(loadTasks);
   border-color: #46866d;
 }
 
+.task-indicator:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 任务信息 */
 .task-info {
   flex: 1;
   min-width: 0;
@@ -656,6 +744,7 @@ onMounted(loadTasks);
   color: #999;
 }
 
+/* 任务状态与截止日期 */
 .task-side {
   display: flex;
   flex-direction: column;
@@ -664,8 +753,23 @@ onMounted(loadTasks);
   min-width: 100px;
 }
 
-.status-label {
+.status-select {
+  padding: 4px 8px;
+  border: 1px solid #eaeaea;
+  border-radius: 5px;
+  background: transparent;
   font-size: 12px;
+  cursor: pointer;
+}
+
+.status-select:focus {
+  outline: none;
+  border-color: #7ca795;
+}
+
+.status-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .status-0 {

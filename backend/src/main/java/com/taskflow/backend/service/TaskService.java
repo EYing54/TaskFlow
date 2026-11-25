@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.taskflow.backend.dto.CreateTaskRequest;
 import com.taskflow.backend.entity.Task;
 import com.taskflow.backend.mapper.TaskMapper;
@@ -44,5 +45,15 @@ public class TaskService {
         taskMapper.insert(task);
 
         return task;
+    }
+
+    public boolean updateTaskStatus(Long userId, Long taskId, Integer status) {
+        LambdaUpdateWrapper<Task> update = new LambdaUpdateWrapper<>();
+
+        update.eq(Task::getId, taskId)
+                .eq(Task::getUserId, userId)
+                .set(Task::getStatus, status);
+
+        return taskMapper.update(null, update) > 0;
     }
 }
